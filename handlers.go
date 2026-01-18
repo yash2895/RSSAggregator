@@ -18,6 +18,7 @@ func (api *apiConfig) handler_readiness(w http.ResponseWriter,r *http.Request) {
 
 func(api *apiConfig) handler_error(w http.ResponseWriter,r *http.Request) {
 	responseWithError(w,500,"something went wrong")
+	return
 }
 
 func (api *apiConfig) handler_users(w http.ResponseWriter, r *http.Request) {
@@ -41,6 +42,7 @@ func (api *apiConfig) handler_users(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		responseWithError(w,500,"Unable to create a user")
+		return
 	}
 	
 	responseWithJSON(w,200,databaseUserToUser(user))
@@ -57,6 +59,7 @@ func (api *apiConfig) handlerGetUsers(w http.ResponseWriter, r *http.Request) {
 	user, err := api.DB.GetUserByAPIKey(r.Context(),apiKey)
 	if err!=nil {
 		responseWithError(w,500,err.Error())
+		return
 	}
 
 	responseWithJSON(w,201,databaseUserToUser(user))
@@ -87,6 +90,7 @@ func (api *apiConfig) handlerFeed(w http.ResponseWriter,r *http.Request, user da
 
 	if err != nil {
 		responseWithError(w,500,"Unable to create a feed")
+		return
 	}
 	
 	responseWithJSON(w,200,databaseFeedToFeed(feed))
@@ -97,6 +101,7 @@ func (api *apiConfig) handlerGetFeeds(w http.ResponseWriter,r *http.Request) {
 
 	if err != nil {
 		responseWithError(w,500,fmt.Sprintf("Error fetching all feeds: %v", err))
+		return
 	}
 	responseWithJSON(w,200,databaseFeedsToFeeds(feeds))
 }
@@ -125,6 +130,7 @@ func (api *apiConfig) handlerFeedFollows(w http.ResponseWriter, r *http.Request,
 
 	if err != nil {
 		responseWithError(w,500,"Unable to create a feed")
+		return
 	}
 	
 	responseWithJSON(w,200,databaseFeedFollowToFeedFollow(feed))
@@ -141,3 +147,26 @@ func (api *apiConfig) handlerGetFeedFollows(w http.ResponseWriter,r *http.Reques
 
 	responseWithJSON(w,200,databaseFeedFollowsToFeedFollows(feeds))
 }
+
+func (api *apiConfig) handlerDeleteFeedFollows(w http.ResponseWriter, r *http.Request, user database.User) {
+	id_value := r.PathValue("id")
+	id,err := uuid.Parse(id_value)
+	if err != nil {
+		responseWithError(w,400,fmt.Sprintf("Unable to paese id: %v" , err))
+		return;
+	} 
+	err = api.DB.DeletFeedFollows(r.Context(), database.DeletFeedFollowsParams {
+		ID: id,
+		UserID: user.ID,
+	})	
+
+	if err != nil {
+	responseWithError(w,500,fmt.Sprintf("Unable to remove feed from follow : &v", err))
+	return
+	}
+	responseWithJSON(w,200,struct{Msg string}{
+
+		Msg : "Deleted Succesfully",
+	})
+} 
+
