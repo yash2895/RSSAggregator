@@ -2,16 +2,19 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/yash2895/RSSAggregator/internal/database"
 )
 
 
 func startScrapping(db *database.Queries, concurrency int32, timeBtwRequest time.Duration) {
-	log.Printf("Starting scrapping on $d goroutines on %d time interval",concurrency, timeBtwRequest)
+	log.Printf("Starting scrapping on %d goroutines on %d time interval",concurrency, timeBtwRequest)
 	ticker := time.Ticker{}
 	for ;; <- ticker.C {
 		feeds,err := db.GetFeedsToFetch(context.Background(),concurrency)
@@ -43,8 +46,43 @@ func scrapeFeed(db *database.Queries, wg *sync.WaitGroup, feed database.Feed) {
 		log.Printf("%v",err)
 		return;
 	}
-	for _,rssitems := range rssfeed.Channel.Item {
-		log.Printf("Found Item: %s \n",rssitems.Title)	
+	for _,item := range rssfeed.Channel.Item {
+		description := sql.NullString{}
+		if item.Description != "" {
+			description.String = item.Description
+			description.Valid = true
+		}
+		db.CreatePost(context.Background(),database.CreatePostParams{
+			ID: uuid.New(),
+			CreatedAt: time.Now().UTC(),
+			UpdatedAt: time.Now().UTC(),
+			Title: item.Title,
+			Description: description,
+		})
+
+		t,err := time.Parse(time.RFC1123Z,item.PubDate)
+		if err != nil {
+			log.Printf("could'nt parse date %v with err %v",item.PubDate,err)
+			continue
+		}
+
+		_,err = db.CreatePost(context.Background(),database.CreatePostParams{
+			ID: uuid.New(),
+			CreatedAt: time.Now().UTC(),
+			UpdatedAt: time.Now().UTC(),
+			Title: item.Title,
+			Description: description,
+			PublishedAt: t,
+			Url: item.Link,
+			FeedID: feed.ID,
+		})
+		if err != nil {
+			if strings.Contains(err.Error(),"duplicate key") {
+				continue
+			}
+			log.Println("Unable to save post ",err)
+		}
 	}
+
 	log.Printf("Fetched feed %s and found %d items \n",rssfeed.Channel.Title,len(rssfeed.Channel.Item))
 }

@@ -161,7 +161,7 @@ func (api *apiConfig) handlerDeleteFeedFollows(w http.ResponseWriter, r *http.Re
 	})	
 
 	if err != nil {
-	responseWithError(w,500,fmt.Sprintf("Unable to remove feed from follow : &v", err))
+	responseWithError(w,500,fmt.Sprint("Unable to remove feed from follow : &v", err))
 	return
 	}
 	responseWithJSON(w,200,struct{Msg string}{
@@ -170,3 +170,15 @@ func (api *apiConfig) handlerDeleteFeedFollows(w http.ResponseWriter, r *http.Re
 	})
 } 
 
+
+func(api *apiConfig) handlerGetPosts(w http.ResponseWriter,r *http.Request, user database.User) {
+	posts, err := api.DB.GetPosts(r.Context(),database.GetPostsParams{
+		UserID: user.ID,
+		Limit: 10,
+	})
+	if err != nil {
+		responseWithError(w,400,fmt.Sprintf("Could'nt get posts : %v" ,err))
+		return
+	}
+	responseWithJSON(w,200,databasePostsToPosts(posts))
+}
